@@ -1,80 +1,105 @@
-import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+import os
+import threading
+from flask import Flask
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    ConversationLogic,
+    filters,
+)
 
-TOKEN = "8903019115:AAFjlLmu3dbtmTSGRHiPhZjN_4mf5Iuci8Y"
-ADMIN_CHAT_ID = "1341194577"
+# Render Web Service እንዳይዘጋ Dummy Web Server
+app = Flask(__name__)
 
-PHONE, METHOD, ACCOUNT, AMOUNT = range(4)
+@app.route('/')
+def home():
+    return "SecureFinance Bot is Running Live!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+# Bot Configuration
+TOKEN = "8171052631:AAEUQj2oBWWu-1k3K9vTfXmR8uX0k628Olo"
+ADMIN_ID = 1341194577
+
+PHONE, PAYMENT_METHOD, ACCOUNT_INFO, AMOUNT = range(4)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [["💸 ክፍያ ለመጠየቅ"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
-        "እንኳን ወደ SecureFinance የክፍያ መጠየቂያ ቦት በደህና መጡ! ክፍያ ለመጠየቅ ከታች ያለውን በተን ይጫኑ።",
-        reply_markup=reply_markup
+        "እንኳን ወደ SecureFinance በሰላም መጡ!\n\nክፍያ ለመጠየቅ ከታች ያለውን በተን ይጫኑ።",
+        reply_markup=reply_markup,
     )
 
 async def request_payout(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    button = KeyboardButton("📱 ስልክ ቁጥር አጋራ", request_contact=True)
-    reply_markup = ReplyKeyboardMarkup([[button]], resize_keyboard=True, one_time_keyboard=True)
-    await update.message.reply_text("እባክዎን ስልክ ቁጥርዎን ያጋሩ፡", reply_markup=reply_markup)
+    await update.message.reply_text("እባክዎ የስልክ ቁጥርዎን ያስገቡ፡")
     return PHONE
 
 async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['phone'] = update.message.contact.phone_number
+    context.user_data['phone'] = update.message.text
     keyboard = [["Telebirr", "Bank Transfer"]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-    await update.message.reply_text("የክፍያ ዘዴ ይምረጡ፡", reply_markup=reply_markup)
-    return METHOD
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("የክፍያ መንገድ ይምረጡ፡", reply_markup=reply_markup)
+    return PAYMENT_METHOD
 
-async def get_method(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['method'] = update.message.text
-    await update.message.reply_text("እባክዎን የቴሌብር ወይም የባንክ አካውንት ቁጥርዎን ያስገቡ፡")
-    return ACCOUNT
+    await update.message.reply_text("የሂሳብ ቁጥር (Account Number) ያስገቡ፡")
+    return ACCOUNT_INFO
 
-async def get_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_account_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['account'] = update.message.text
-    await update.message.reply_text("ማውጣት የሚፈልጉትን የብር መጠን ያስገቡ፡")
+    await update.message.reply_text("መውጣት የሚፈልጉትን የብር መጠን ያስገቡ፡")
     return AMOUNT
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['amount'] = update.message.text
     user = update.message.from_user
     
-    admin_msg = (
-        f"🚨 **አዲስ የክፍያ ጥያቄ!** 🚨\n\n"
-        f"👤 ተጠቃሚ: @{user.username} ({user.full_name})\n"
-        f"📱 ስልክ: {context.user_data['phone']}\n"
-        f"💳 መንገድ: {context.user_data['method']}\n"
-        f"🔢 አካውንት: {context.user_data['account']}\n"
-        f"💰 መጠን: {context.user_data['amount']} ETB"
+    msg = (
+        f"🚨 **አዲስ የክፍያ ጥያቄ!**\n\n"
+        f"👤 **ተጠቃሚ:** {user.full_name} (@{user.username})\n"
+        f"📱 **ስልክ:** {context.user_data['phone']}\n"
+        f"💳 **የክፍያ መንገድ:** {context.user_data['method']}\n"
+        f"🔢 **የሂሳብ ቁጥር:** {context.user_data['account']}\n"
+        f"💰 **የብር መጠን:** {context.user_data['amount']} ETB"
     )
     
-    await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_msg)
-    await update.message.reply_text("የክፍያ ጥያቄዎ በተሳካ ሁኔታ ደርሶናል! መረጃው ተጣርቶ በቅርቡ ገቢ ይደረጋል።")
-    return ConversationHandler.END
+    await context.bot.send_message(chat_id=ADMIN_ID, text=msg, parse_mode="Markdown")
+    await update.message.reply_text("የክፍያ ጥያቄዎ በትክክል ደርሶናል! በቅርቡ ይከናወናል።")
+    return ConversationLogic.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("ሂደቱ ተሰርዟል።")
-    return ConversationHandler.END
+    return ConversationLogic.END
 
-if __name__ == '__main__':
-    app = ApplicationBuilder().token(TOKEN).build()
+def main():
+    # Flask Web Server በ Thread ማስነሳት
+    threading.Thread(target=run_web, daemon=True).start()
     
-    conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex('^💸 ክፍያ ለመጠየቅ$'), request_payout)],
+    # Telegram Bot ማስነሳት
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    conv_handler = ConversationLogic(
+        entry_points=[MessageHandler(filters.Regex("^💸 ክፍያ ለመጠየቅ$"), request_payout)],
         states={
-            PHONE: [MessageHandler(filters.CONTACT, get_phone)],
-            METHOD: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_method)],
-            ACCOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_account)],
+            PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_phone)],
+            PAYMENT_METHOD: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_payment_method)],
+            ACCOUNT_INFO: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_account_info)],
             AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount)],
         },
-        fallbacks=[CommandHandler('cancel', cancel)]
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
-    
-    app.add_handler(CommandHandler('start', start))
-    app.add_handler(conv_handler)
-    
-    print("Bot is running...")
-    app.run_polling()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(conv_handler)
+
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()

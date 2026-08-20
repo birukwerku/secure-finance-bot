@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 from flask import Flask
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
@@ -72,22 +73,22 @@ async def get_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def get_account_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['account'] = update.message.text
-    await update.message.reply_text("መውጣት የሚፈልጉትን የብር መጠን ያስገቡ (ቁጥር ብቻ):")
+    await update.message.reply_text("መውጣት የሚፈልጉትን የብር መጠን ያስገቡ፡")
     return AMOUNT
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
+    raw_text = update.message.text
     
-    # ጽሁፉን ወደ ቁጥር መቀየር
-    clean_text = "".join(filter(str.isdigit, text))
+    # ከጽሁፉ ውስጥ ቁጥሮችን ብቻ ነጥሎ ማውጣት ( Regex )
+    numbers = re.findall(r'\d+', raw_text)
     
-    if not clean_text:
-        await update.message.reply_text("እባክዎ ትክክለኛ የብር መጠን በቁጥር ብቻ ያስገቡ፡")
+    if not numbers:
+        await update.message.reply_text("እባክዎ ትክክለኛ የብር መጠን በቁጥር ያስገቡ (ምሳሌ፦ 200)፡")
         return AMOUNT
         
-    amount = int(clean_text)
+    amount = int("".join(numbers))
     
-    # የ 500 ብር ገደብ ማረጋገጥ
+    # የ 500 ብር ገደብ (Daily Limit) ማረጋገጥ
     if amount > 500:
         await update.message.reply_text(
             "The maximum withdrawal limit per day is 500 ETB. Please enter a valid amount:"
@@ -106,10 +107,10 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💰 **የብር መጠን:** {context.user_data['amount']} ETB"
     )
     
-    # ወደ አድሚን መልእክት መላክ
+    # ወደ አድሚን Telegram ID መላክ
     await context.bot.send_message(chat_id=ADMIN_ID, text=msg, parse_mode="Markdown")
     
-    # ለተጠቃሚው የሚላክ የተስተካከለ መልእክት
+    # ለተጠቃሚው የሚላክ ማረጋገጫ
     await update.message.reply_text(
         "የክፍያ ጥያቄዎ በትክክል ደርሶናል! ማረጋገጥ እንድንችል ከ 1 እስከ 2 ቀን ድረስ ይጠብቁን ባለቤቱ ያረጋግጥሎታል።"
     )

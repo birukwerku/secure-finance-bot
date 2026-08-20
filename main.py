@@ -7,11 +7,10 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     ContextTypes,
-    ConversationLogic,
+    ConversationHandler,
     filters,
 )
 
-# Render Web Service እንዳይዘጋ Dummy Web Server
 app = Flask(__name__)
 
 @app.route('/')
@@ -22,7 +21,6 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# Bot Configuration
 TOKEN = "8171052631:AAEUQj2oBWWu-1k3K9vTfXmR8uX0k628Olo"
 ADMIN_ID = 1341194577
 
@@ -72,20 +70,18 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_message(chat_id=ADMIN_ID, text=msg, parse_mode="Markdown")
     await update.message.reply_text("የክፍያ ጥያቄዎ በትክክል ደርሶናል! በቅርቡ ይከናወናል።")
-    return ConversationLogic.END
+    return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("ሂደቱ ተሰርዟል።")
-    return ConversationLogic.END
+    return ConversationHandler.END
 
 def main():
-    # Flask Web Server በ Thread ማስነሳት
     threading.Thread(target=run_web, daemon=True).start()
     
-    # Telegram Bot ማስነሳት
     application = ApplicationBuilder().token(TOKEN).build()
 
-    conv_handler = ConversationLogic(
+    conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^💸 ክፍያ ለመጠየቅ$"), request_payout)],
         states={
             PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_phone)],

@@ -1,7 +1,7 @@
 import os
 import threading
 from flask import Flask
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -11,7 +11,7 @@ from telegram.ext import (
     filters,
 )
 
-# Render Web Service እንዳይዘጋ Dummy Web Server
+# Render Web Service
 app = Flask(__name__)
 
 @app.route('/')
@@ -22,18 +22,36 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# Updated Credentials
+# Credentials
 TOKEN = "8903019115:AAFjlLmu3dbtmTSGRHiPhZjN_4mf5Iuci8Y"
 ADMIN_ID = 6363252980
+
+# Telegram & YouTube Channel Links
+TELEGRAM_CHANNEL_URL = "https://t.me/securefinance2" 
+YOUTUBE_CHANNEL_URL = "https://www.youtube.com/@SecureFinance-x4m"
 
 PHONE, PAYMENT_METHOD, ACCOUNT_INFO, AMOUNT = range(4)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [["💸 ክፍያ ለመጠየቅ"]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    # የቴሌግራም እና ዩቲዩብ አዝራሮች
+    inline_keyboard = [
+        [InlineKeyboardButton("📢 Telegram Channel (20 Birr Bonus)", url=TELEGRAM_CHANNEL_URL)],
+        [InlineKeyboardButton("▶️ YouTube Channel (20 Birr Bonus)", url=YOUTUBE_CHANNEL_URL)]
+    ]
+    inline_markup = InlineKeyboardMarkup(inline_keyboard)
+    
+    reply_keyboard = [["💸 ክፍያ ለመጠየቅ"]]
+    reply_markup = ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True)
+    
     await update.message.reply_text(
-        "እንኳን ወደ SecureFinance በሰላም መጡ!\n\nክፍያ ለመጠየቅ ከታች ያለውን በተን ይጫኑ።",
-        reply_markup=reply_markup,
+        "እንኳን ወደ SecureFinance በሰላም መጡ!\n\n"
+        "🎁 የቴሌግራም እና የዩቲዩብ ቻናላችንን ይቀላቀሉ እና የ 20 birr ሽልማት ያግኙ!",
+        reply_markup=inline_markup
+    )
+    
+    await update.message.reply_text(
+        "ክፍያ ለመጠየቅ ከታች ያለውን በተን ይጫኑ።",
+        reply_markup=reply_markup
     )
 
 async def request_payout(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -54,11 +72,29 @@ async def get_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def get_account_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['account'] = update.message.text
-    await update.message.reply_text("መውጣት የሚፈልጉትን የብር መጠን ያስገቡ፡")
+    await update.message.reply_text("መውጣት የሚፈልጉትን የብር መጠን ያስገቡ (ቁጥር ብቻ):")
     return AMOUNT
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['amount'] = update.message.text
+    text = update.message.text.strip()
+    
+    # ጽሁፉን ወደ ቁጥር መቀየር
+    clean_text = "".join(filter(str.isdigit, text))
+    
+    if not clean_text:
+        await update.message.reply_text("እባክዎ ትክክለኛ የብር መጠን በቁጥር ብቻ ያስገቡ፡")
+        return AMOUNT
+        
+    amount = int(clean_text)
+    
+    # የ 500 ብር ገደብ ማረጋገጥ
+    if amount > 500:
+        await update.message.reply_text(
+            "The maximum withdrawal limit per day is 500 ETB. Please enter a valid amount:"
+        )
+        return AMOUNT
+
+    context.user_data['amount'] = amount
     user = update.message.from_user
     
     msg = (
@@ -70,8 +106,13 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💰 **የብር መጠን:** {context.user_data['amount']} ETB"
     )
     
+    # ወደ አድሚን መልእክት መላክ
     await context.bot.send_message(chat_id=ADMIN_ID, text=msg, parse_mode="Markdown")
-    await update.message.reply_text("የክፍያ ጥያቄዎ በትክክል ደርሶናል! በቅርቡ ይከናወናል።")
+    
+    # ለተጠቃሚው የሚላክ የተስተካከለ መልእክት
+    await update.message.reply_text(
+        "የክፍያ ጥያቄዎ በትክክል ደርሶናል! ማረጋገጥ እንድንችል ከ 1 እስከ 2 ቀን ድረስ ይጠብቁን ባለቤቱ ያረጋግጥሎታል።"
+    )
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -79,10 +120,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 def main():
-    # Web server በ thread ማስነሳት
     threading.Thread(target=run_web, daemon=True).start()
     
-    # Telegram Bot
     application = ApplicationBuilder().token(TOKEN).build()
 
     conv_handler = ConversationHandler(

@@ -11,6 +11,7 @@ from telegram.ext import (
     filters,
 )
 
+# Render Web Service እንዳይዘጋ Dummy Web Server
 app = Flask(__name__)
 
 @app.route('/')
@@ -21,8 +22,9 @@ def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-TOKEN = "8171052631:AAEUQj2oBWWu-1k3K9vTfXmR8uX0k628Olo"
-ADMIN_ID = 1341194577
+# Updated Credentials
+TOKEN = "8903019115:AAFjlLmu3dbtmTSGRHiPhZjN_4mf5Iuci8Y"
+ADMIN_ID = 6363252980
 
 PHONE, PAYMENT_METHOD, ACCOUNT_INFO, AMOUNT = range(4)
 
@@ -77,8 +79,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 def main():
+    # Web server በ thread ማስነሳት
     threading.Thread(target=run_web, daemon=True).start()
     
+    # Telegram Bot
     application = ApplicationBuilder().token(TOKEN).build()
 
     conv_handler = ConversationHandler(
